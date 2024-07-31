@@ -1,0 +1,188 @@
+#Unity ScriptableObject 编辑器重启时资源无法加载，报错The associated script can not be loaded.
+在使用ScriptableObject之前，我研究过官方文档，但很显然，里面并没有说的多详细，倒是在CSDN上有很多博主给出了一些常见错误：在ScriptableObject里面试图保存多维数组；在ScriptableObject里保存类时没有对类进行序列化；在editor运行时ScriptableObject的数据更改不会保存，要特殊标记为dirt才能将其更新到磁盘中，等等等等。
+
+  在看完这些注意事项后，我也有去注意别去踩这些坑，所以我只是把这玩意当做一个用于储存数据的容器。
+
+  以下为我使用的代码：
+
+CreateAssetMenu(fileName = "AllItems",menuName ="Item")] 
+
+public class AllItemsList :ScriptableObject 
+
+{ 
+
+	public List<ItemInfo> itemInfo = new List<ItemInfo>(); 
+
+} 
+
+public enum ItemType 
+
+{ 
+
+Nature, 
+
+Skill,
+
+ Material
+
+ } 
+
+[Serializable]
+
+ public class ItemInfo 
+
+{ 
+
+[Header("物品基础属性")] 
+
+#region 
+
+/// <summary> /// ID序号 /// </summary> 
+
+[SerializeField] private int id; 
+
+/// <summary> /// 物品类型 /// </summary> 
+
+[SerializeField] private ItemType type;
+
+ /// <summary> /// 物品单格最大容量 /// </summary> 
+
+[SerializeField] private int capacity; 
+
+/// <summary> /// 物品名称 /// </summary> 
+
+[SerializeField] private string itemName; 
+
+/// <summary> /// 物品描述 /// </summary> 
+
+[SerializeField] private string description; 
+
+/// <summary> /// 物品UI图片 /// </summary>
+
+ [SerializeField] private Sprite sprite; #endregion 
+
+[Header("能力类物品信息(非能力类物品不填)")]
+
+ #region 
+
+/// <summary> /// 基础攻击力改变 /// </summary> 
+
+[SerializeField] private float basicAttack; 
+
+/// <summary> /// 基础移速改变 /// </summary>
+
+ [SerializeField] private float movementSpeed; 
+
+/// <summary> /// 基础攻击速度改变 /// </summary> 
+
+[SerializeField] private float attackSpeed; 
+
+/// <summary> /// 跳跃次数改变 /// </summary>
+
+ [SerializeField] private int jumpTimes; 
+
+/// <summary> /// 跳跃高度改变 /// </summary> 
+
+[SerializeField] private float jumpForce; 
+
+#endregion
+
+ [Header("性质类物品信息(非性质类物品不填)")] 
+
+#region
+
+ /// <summary> /// 耐酸性 /// </summary>
+
+ [SerializeField] private bool acidResisting;
+
+ #endregion 
+
+//封装信息折叠 #region 
+
+/// <summary> /// 物品ID(只读) /// </summary>
+
+ public int ID { get { return id; } }
+
+ /// <summary> /// 物品类型(只读) /// </summary> 
+
+public ItemType Type { get { return type; } }
+
+ /// <summary> /// 物品单格最大容量(只读) /// </summary>
+
+ public int Capacity { get { return capacity; } } 
+
+/// <summary> /// 物品名称(只读) /// </summary> 
+
+public string ItemName { get { return itemName; } }
+
+ /// <summary> /// 物品描述(只读) /// </summary> 
+
+public string Description { get { return description; } } 
+
+/// <summary> /// 物品UI图片(只读) /// </summary> 
+
+public Sprite Sprite { get { return sprite; } } 
+
+/// <summary> /// 基础攻击力改变(只读) /// </summary> 
+
+public float BasicAttack { get { return basicAttack; } }
+
+ /// <summary> /// 基础移速改变(只读) /// </summary> 
+
+public float MovementSpeed { get { return movementSpeed; } } 
+
+/// <summary> /// 基础攻击速度改变(只读) /// </summary>
+
+ public float AttackSpeed { get { return attackSpeed; } }
+
+ /// <summary> /// 跳跃次数改变(只读) /// </summary> 
+
+public int JumpTimes { get { return jumpTimes; } } 
+
+/// <summary> /// 跳跃高度改变(只读) /// </summary> 
+
+public float JumpForce { get { return jumpForce; } } 
+
+/// <summary> /// 耐酸性(只读) /// </summary>
+
+ public bool AcidResisting { get { return acidResisting; } } 
+
+#endregion
+
+ //Creat函数折叠 #region
+
+ public NatureItem CreatNatureItem() 
+
+{ 
+
+	return new NatureItem(id, type, capacity, itemName, description, sprite, acidResisting); 
+
+} 
+
+public SkillItem CreatSkillItem() 
+
+{
+
+ return new SkillItem(id, type, capacity, itemName, description, sprite, basicAttack, movementSpeed, attackSpeed, jumpTimes, jumpForce); 
+
+} 
+
+public MaterialItem CreatMaterialItem() 
+
+{
+
+ return new MaterialItem(id, type, capacity, itemName, description, sprite); } #endregion 
+
+}
+
+
+
+我在AllItemList（ScriptableObject）中创建一个ItemInfo的列表，用于储存物品信息，没有忘记将ItemInfo标记为可序列化。但是当我在Asset中创建这个数据列表AllItems后，在退出编辑器后再次进入，创建的Asset文件却发生了这样的报错:The associated script can not be loaded.意思是相关脚本无法被加载？
+
+我当初以为是我的ScriptableObject可能在哪个地方踩坑了，或许是不能储存类的列表，于是我又到网上去查找了相关信息，发现我的代码貌似没有错误？
+
+最后，在去查找The associated script can not be loaded.这类报错时，我发现这类保存针对的是组件脚本丢失或是脚本名与类名不匹配的情况，这时，我才突然想到，我在创建AllItemList这个类时，是将其与其他所有物品类全部放在了一个叫做Item的脚本下，而这个脚本名与AllItemList的类名不符，unity在重启后无法查找到相关组件，所以无法加载对应对应代码，故发生报错。
+
+将AllItemList类单独移出，创建一个新的脚本AllItemList后，重启资源保存正常，不在发生报错。
+
+以此衍生出一系列问题：要单独使用（挂载）的类要单独用一个与类名一致的脚本单独保存。
